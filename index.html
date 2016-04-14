@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Title</title>
+    <meta charset="utf-8">
+    <style>
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+      body { font-family: Droid Serif; }
+      h1, h2, h3 {
+        font-family: Yanone Kaffeesatz;
+        font-weight: normal;
+      }
+      .remark-code, .remark-inline-code { font-family: Ubuntu Mono; }
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+class: center, middle
+
+# WebSockets
+
+---
+
+# Don't hit the refresh button
+
+1. Clients needing to send data rapidly to the server (online games)
+2. "Live data" - comments, chats, dashboards, etc.
+3. Streaming data
+
+---
+
+# The Road to Websockets
+
+1. Polling (Basecamp used 3-second polling for 10 years)
+  - \+ Simple
+  - \+ Network latency, ip-address changes, etc. won't break the app
+  - \- Scalability
+  - \- Not appropriate for rapid two-way communication
+2. Long-polling (holding the request open untill new data on server)
+  - \+ Great if data does not change often
+  - \- Various techniques, more difficult than polling
+3. Server-sent Events (SSE)
+  - \+ Simple from client's point of view
+  - \- Need persistent connection (won't work on Heroku, with Unicorn, etc... 30 sec timeout)
+  - \- One way communication only
+  - \- Not supported by IE
+4. Websockets
+
+---
+
+# How WebSockets work
+
+1. Persistent, stateful connection (vs stateless HTTP)
+  - \+ No cookies or session ID's
+  - \- Connection between client and particular server instance must remain constant (redis)
+  - \- Load balancing more difficult
+2. Little metadata on each request (vs headers on each request in HTTP)
+3. Two-way full-duplex communication (vs one-way half-duplex in HTTP)
+  - \+ Less latency
+  - \- Can be simulated by polling (with ~3 sec resolution)
+4. http://caniuse.com/#feat=websockets
+
+---
+
+# Websockets deep dive
+
+- http://blog.honeybadger.io/building-a-simple-websockets-server-from-scratch-in-ruby/
+
+---
+
+# Client side
+
+---
+
+# Request Logic
+
+- The browser sends a normal HTTP request, with some special headers that say "please make me a websocket."
+- The server replies with a certain HTTP response, but DOESN'T CLOSE THE CONNECTION.
+- The browser and server then use a special websocket protocol to exchange frames of data over the open connection.
+
+---
+
+# Websocket frame protocol
+
+```
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-------+-+-------------+-------------------------------+
+|F|R|R|R| opcode|M| Payload len |    Extended payload length    |
+|I|S|S|S|  (4)  |A|     (7)     |             (16/64)           |
+|N|V|V|V|       |S|             |   (if payload len==126/127)   |
+| |1|2|3|       |K|             |                               |
++-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
+|     Extended payload length continued, if payload len == 127  |
++ - - - - - - - - - - - - - - - +-------------------------------+
+|                               |Masking-key, if MASK set to 1  |
++-------------------------------+-------------------------------+
+| Masking-key (continued)       |          Payload Data         |
++-------------------------------- - - - - - - - - - - - - - - - +
+:                     Payload Data continued ...                :
++ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +
+|                     Payload Data continued ...                |
++---------------------------------------------------------------+
+```
+
+---
+
+# Byte 1: Fin and Opcode
+
+- FIN: 1 bit If this is false, then the message is split into multiple frames
+- opcode: 4 bits Tells us if the payload is text, binary, or if this is just a "ping" to keep the connection alive.
+- RSV: 3 bits These are unused in the current WebSockets spec.
+
+---
+
+# Byte 2: MASK and payload length
+
+- MASK: 1 bit Boolean flag indicating if the payload is masked. If it's true, then the payload will have to be "unmasked" before use. This should ALWAYS be true for frames coming in from our client. The spec says so.
+- payload length: 7 bits If our payload is less than 126 bytes, the length is stored here. If this value is greater than 126, that means more bytes will follow to give us the length.
+
+---
+
+# Bytes 3-7: The masking key
+
+---
+
+# Bytes 8 and up: The payload
+
+- Byte 1: FIN and opcode
+
+- Byte 2: MASKED and payload length
+
+- Bytes 3 and up: The payload
+
+---
+
+# Links
+
+- [heroku webockets article](https://devcenter.heroku.com/articles/ruby-websockets)
+- [heroku webockets architecture](https://devcenter.heroku.com/articles/websockets#application-architecture)
+- [redis pub sub](http://blog.codeship.com/alternative-service-communication-using-pubsub/)
+- [faye-websocket-ruby gem](https://github.com/faye/faye-websocket-ruby)
+- [faye website](http://faye.jcoglan.com/)
+
+    </textarea>
+    <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js">
+    </script>
+    <script>
+      var slideshow = remark.create();
+    </script>
+  </body>
+</html>
